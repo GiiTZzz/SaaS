@@ -1,0 +1,179 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --line: #dfe3e8;
+  --text: #14181d;
+  --muted: #626d7a;
+  --accent: #1f6feb;
+  --emergency: #c62828;
+  --urgent: #b26a00;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: var(--muted);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 85%;
+  white-space: pre-wrap;
+}
+
+.bubble.agent {
+  background: #eef2f7;
+  align-self: flex-start;
+}
+
+.bubble.customer {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-end;
+}
+
+form.composer {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+input[type="text"],
+textarea {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+button {
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.tag {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.tag.emergency {
+  color: var(--emergency);
+}
+
+.tag.urgent {
+  color: var(--urgent);
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 2px 0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+nav a {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --panel: #1c2027;
+    --line: #2c323b;
+    --text: #e8ebef;
+    --muted: #98a3b1;
+  }
+  .bubble.agent {
+    background: #262c35;
+  }
+  input[type="text"],
+  textarea,
+  button {
+    background: #232830;
+  }
+  button.primary {
+    background: var(--accent);
+  }
+}
