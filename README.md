@@ -12,13 +12,28 @@ MVP příležitosti č. 3 z analýzy `AI_prilezitosti_2026`.
 npm install
 npm run seed      # založí demo firmu tp_demo
 npm run dev       # http://localhost:3000
+npm test          # 41 testů, bez síťových závislostí
 ```
 
-- `/` — příjem poptávek (pohled zákazníka)
-- `/dispatch` — dispečink (pohled řemeslníka)
+- `/` — příjem poptávek (pohled zákazníka), veřejné
+- `/dispatch?token=…` — dispečink (pohled řemeslníka), chráněné
 
 `ANTHROPIC_API_KEY` je **nepovinný**. Bez něj běží deterministický fallback,
 takže příjem poptávek funguje i při výpadku modelu — viz `src/lib/triage.ts`.
+
+## Přístup k dispečinku
+
+Dispečink ukazuje jména, telefony a adresy zákazníků a umožňuje zakázky
+potvrzovat a rušit. Chrání ho sdílený token v `DISPECR_DISPATCH_TOKEN`;
+řemeslník si otevře `/dispatch?token=…` a URL si uloží do záložek.
+
+Bez nastaveného tokenu je dispečink otevřený jen ve vývoji — **v produkci se
+odmítne obsloužit**. Fail-closed je tu schválně: chybějící konfigurace nesmí
+tiše vystavit data zákazníků.
+
+Je to záměrně minimum, ne účtový systém: token není per-uživatel a odvolat ho
+jde jen rotací hodnoty. Až bude potřeba víc, je to místo, kam přijde skutečná
+autentizace.
 
 ## Návrhový princip: agent píše, kód rozhoduje
 
@@ -52,6 +67,22 @@ Kontrola volnosti slotu i zápis běží v jedné SQLite transakci
 někdo jiný, a v tom případě agent nabídne nové termíny místo potvrzení
 něčeho, co už nemůže splnit.
 
+## Testy
+
+`npm test` (Node test runner, žádná další závislost). Pokrývají to, co může
+stát řemeslníka výjezd:
+
+- generování termínů — lead time, pracovní doba, zavírací hodina, víkend
+- kolize — držený i potvrzený termín blokují kalendář, částečný překryv
+- expirace holdu — uvolní slot, ale nejde ji potvrdit po termínu
+- stavový automat — nikdy nepřeskočí chybějící údaj, nikdy nerezervuje při
+  nejasné odpovědi, nikdy netvrdí „držíme termín", když žádný nevznikl
+- parsování volby termínu — `14:30` v textu není volba č. 1
+- autorizace dispečinku včetně fail-closed chování v produkci
+
+Čas se do vrstvy rezervací **injektuje** (`now` parametr), takže testy nejsou
+závislé na systémových hodinách.
+
 ## Naléhavost řídí, jak daleko se hledá
 
 | Naléhavost | Nejdřív za | Nabízí max. do |
@@ -80,6 +111,5 @@ zákazník počká — proto se okno raději omezí a zakázka spadne na telefon
 - **Skutečné SMS / WhatsApp.** `src/lib/notify.ts` jen loguje — celý tok jde
   odzkoušet bez externích účtů.
 - **Hlasový agent.** Nejtěžší část, patří do verze 2.
-- **Autentizace dispečinku.** `/dispatch` je zatím otevřený.
 - **Časová pásma.** Pracovní doba se počítá v lokálním čase serveru. Pro ČR to
   stačí, pro cokoli dalšího je to první věc k opravě.

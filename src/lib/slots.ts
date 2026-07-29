@@ -43,8 +43,9 @@ export function findSlots(
     if (withinWorkingHours(cursor, end, hours) && !overlapsAny(cursor, end, busy)) {
       out.push({ start: new Date(cursor), end });
       // Don't offer three slots that all start 30 minutes apart — space them
-      // out so the customer gets a real choice.
-      cursor = new Date(end.getTime());
+      // out so the customer gets a real choice. Re-align to the grid so a
+      // slot length that isn't a multiple of the step can't drift off it.
+      cursor = ceilToStep(end);
       continue;
     }
     cursor = new Date(cursor.getTime() + STEP_MINUTES * 60_000);

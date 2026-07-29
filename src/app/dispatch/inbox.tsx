@@ -12,17 +12,22 @@ const STATUS_LABEL: Record<Booking["status"], string> = {
 
 export default function Inbox({
   tradespersonId,
+  token,
   initial,
 }: {
   tradespersonId: string;
+  token: string | null;
   initial: Booking[];
 }) {
+  const authHeaders = token ? { "x-dispatch-token": token } : undefined;
   const [bookings, setBookings] = useState(initial);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const res = await fetch(`/api/bookings?tradespersonId=${tradespersonId}`);
+    const res = await fetch(`/api/bookings?tradespersonId=${tradespersonId}`, {
+      headers: authHeaders,
+    });
     if (res.ok) setBookings((await res.json()).bookings);
   }
 
@@ -43,7 +48,7 @@ export default function Inbox({
     try {
       const res = await fetch(`/api/bookings/${id}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...authHeaders },
         body: JSON.stringify({ action, reason }),
       });
       const data = await res.json();

@@ -1,21 +1,28 @@
 import Database from "better-sqlite3";
+import fs from "node:fs";
 import path from "node:path";
-
-const DB_PATH = process.env.DISPECR_DB ?? path.join(process.cwd(), "data", "dispecr.db");
 
 let instance: Database.Database | null = null;
 
 export function db(): Database.Database {
   if (instance) return instance;
 
-  const fs = require("node:fs") as typeof import("node:fs");
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+  // Resolved on first use rather than at import time, so tests can point
+  // DISPECR_DB at a scratch file before touching the database.
+  const dbPath = process.env.DISPECR_DB ?? path.join(process.cwd(), "data", "dispecr.db");
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-  instance = new Database(DB_PATH);
+  instance = new Database(dbPath);
   instance.pragma("journal_mode = WAL");
   instance.pragma("foreign_keys = ON");
   migrate(instance);
   return instance;
+}
+
+/** Test helper: drop the cached handle so the next db() reopens DISPECR_DB. */
+export function resetDbForTests(): void {
+  instance?.close();
+  instance = null;
 }
 
 function migrate(d: Database.Database) {

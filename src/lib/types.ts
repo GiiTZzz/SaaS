@@ -40,6 +40,8 @@ export type ConversationState =
   | "collecting"
   | "proposing"
   | "held"
+  /** No slot fit the urgency window; the job was handed to the phone. */
+  | "handoff"
   | "confirmed"
   | "rejected";
 

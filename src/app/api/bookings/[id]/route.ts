@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { confirmBooking, getBooking, rejectBooking } from "@/lib/bookings";
+import { checkDispatchAccess, tokenFromRequest } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const access = checkDispatchAccess(tokenFromRequest(req));
+  if (!access.ok) return NextResponse.json({ error: access.reason }, { status: 401 });
+
   const { id } = await ctx.params;
 
   let body: { action?: string; reason?: string };

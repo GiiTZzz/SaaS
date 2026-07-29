@@ -134,6 +134,13 @@ async function route(
         collected,
         offers,
       };
+    case "handoff":
+      return {
+        reply: `Vaši poptávku už má ${tp.name} u sebe a ozve se vám telefonicky.`,
+        state: "handoff",
+        collected,
+        offers,
+      };
     case "confirmed":
       return {
         reply: "Termín je potvrzený. Pokud potřebujete něco změnit, zavolejte nám prosím.",
@@ -178,11 +185,14 @@ function propose(tp: Tradesperson, collected: Collected): Outcome {
   const slots = findSlots(tp, urgency, 3);
 
   if (slots.length === 0) {
+    // Deliberately not "held": nothing was reserved, and telling the customer
+    // we are holding a slot that does not exist is the one lie that costs the
+    // tradesperson a callout.
     return {
       reply:
         `Díky, mám všechno potřebné. V rámci ${URGENCY_LABEL[urgency].toLowerCase()} zakázky ` +
         `teď bohužel nevidím volný termín — předávám to ${tp.name} a ozve se vám telefonicky.`,
-      state: "held",
+      state: "handoff",
       collected,
       offers: [],
     };
@@ -243,16 +253,22 @@ function choose(
 }
 
 function parseChoice(text: string, count: number): number | null {
-  const digit = text.match(/[1-9]/);
-  if (digit) {
-    const n = Number(digit[0]) - 1;
+  // Strip anything that looks like a clock time first. "beru ten v 14:30"
+  // must not resolve to option 1 just because a 1 appears in the hour.
+  const cleaned = text.replace(/\d{1,2}[:.]\d{2}/g, " ");
+
+  // Only a digit standing on its own is a choice — "12" or a house number is not.
+  const standalone = cleaned.match(/(?:^|\s)([1-9])(?=[\s.,!)]|$)/);
+  if (standalone) {
+    const n = Number(standalone[1]) - 1;
     if (n >= 0 && n < count) return n;
   }
+
   const words: [RegExp, number][] = [
     [/prvn/i, 0],
     [/druh/i, 1],
     [/třet|tret/i, 2],
   ];
-  for (const [re, i] of words) if (re.test(text) && i < count) return i;
+  for (const [re, i] of words) if (re.test(cleaned) && i < count) return i;
   return null;
 }

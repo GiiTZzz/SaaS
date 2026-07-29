@@ -66,13 +66,13 @@ export function reserveSlot(
   return booking;
 }
 
-export function getBooking(id: string): Booking | undefined {
-  expireStaleHolds();
+export function getBooking(id: string, now = new Date()): Booking | undefined {
+  expireStaleHolds(now);
   return db().prepare(`SELECT * FROM booking WHERE id = ?`).get(id) as Booking | undefined;
 }
 
-export function listBookings(tradespersonId: string): Booking[] {
-  expireStaleHolds();
+export function listBookings(tradespersonId: string, now = new Date()): Booking[] {
+  expireStaleHolds(now);
   return db()
     .prepare(
       `SELECT * FROM booking WHERE tradesperson_id = ?
@@ -82,16 +82,25 @@ export function listBookings(tradespersonId: string): Booking[] {
 }
 
 /** Tradesperson accepts the hold. Only a live hold can be confirmed. */
-export function confirmBooking(id: string): Booking {
-  return transition(id, "confirmed", null);
+export function confirmBooking(id: string, now = new Date()): Booking {
+  return transition(id, "confirmed", null, now);
 }
 
-export function rejectBooking(id: string, reason: string | null): Booking {
-  return transition(id, "rejected", reason);
+export function rejectBooking(id: string, reason: string | null, now = new Date()): Booking {
+  return transition(id, "rejected", reason, now);
 }
 
-function transition(id: string, to: "confirmed" | "rejected", reason: string | null): Booking {
-  expireStaleHolds();
+/**
+ * `now` is threaded through rather than read from the clock inside, so that
+ * expiry is decided by the same instant the caller used to reserve the slot.
+ */
+function transition(
+  id: string,
+  to: "confirmed" | "rejected",
+  reason: string | null,
+  now: Date,
+): Booking {
+  expireStaleHolds(now);
   const run = db().transaction((): Booking => {
     const current = db().prepare(`SELECT * FROM booking WHERE id = ?`).get(id) as
       | Booking
@@ -109,7 +118,7 @@ function transition(id: string, to: "confirmed" | "rejected", reason: string | n
 
     db()
       .prepare(`UPDATE conversation SET state = ?, updated_at = ? WHERE id = ?`)
-      .run(to === "confirmed" ? "confirmed" : "rejected", new Date().toISOString(), current.conversation_id);
+      .run(to === "confirmed" ? "confirmed" : "rejected", now.toISOString(), current.conversation_id);
 
     return { ...current, status: to, reject_reason: reason, hold_expires_at: null };
   });
