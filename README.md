@@ -12,7 +12,7 @@ MVP příležitosti č. 3 z analýzy `AI_prilezitosti_2026`.
 npm install
 npm run seed      # založí demo firmu tp_demo
 npm run dev       # http://localhost:3000
-npm test          # 41 testů, bez síťových závislostí
+npm test          # 42 testů, bez síťových závislostí
 ```
 
 - `/` — příjem poptávek (pohled zákazníka), veřejné
@@ -80,8 +80,9 @@ stát řemeslníka výjezd:
 - parsování volby termínu — `14:30` v textu není volba č. 1
 - autorizace dispečinku včetně fail-closed chování v produkci
 
-Čas se do vrstvy rezervací **injektuje** (`now` parametr), takže testy nejsou
-závislé na systémových hodinách.
+Čas se **injektuje** (`now` parametr) do celé vrstvy — rezervací i konverzace.
+Bez toho byly testy závislé na denní době: odpoledne se do zavíračky vejde
+jen jeden termín, takže test „vyber možnost 2" po 13:00 padal.
 
 ## Naléhavost řídí, jak daleko se hledá
 

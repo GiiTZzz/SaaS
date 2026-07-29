@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { makeTradesperson, useScratchDb } from "./helpers";
+import { makeTradesperson, useScratchDb, wednesday } from "./helpers";
 
 useScratchDb();
 
@@ -13,10 +13,15 @@ import { ruleBased } from "../src/lib/triage";
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.ANTHROPIC_AUTH_TOKEN;
 
+// A fixed instant, so the suite does not change behaviour with the time of
+// day. Late enough in the afternoon and only one slot fits before closing,
+// which used to make the "pick option 2" test fail after ~13:00.
+const NOW = wednesday(9);
+
 async function intake(tradespersonId: string, turns: string[]) {
   const conv = startConversation(tradespersonId);
   let last = { reply: "", state: "collecting" as string };
-  for (const text of turns) last = await handleTurn(conv, text);
+  for (const text of turns) last = await handleTurn(conv, text, NOW);
   return { conv, ...last };
 }
 
@@ -32,10 +37,10 @@ describe("intake state machine", () => {
     const tp = makeTradesperson();
     const conv = startConversation(tp.id);
 
-    const first = await handleTurn(conv, "Nejde mi kotel");
+    const first = await handleTurn(conv, "Nejde mi kotel", NOW);
     assert.equal(first.state, "collecting");
 
-    const second = await handleTurn(conv, "Dlouhá 12, Brno");
+    const second = await handleTurn(conv, "Dlouhá 12, Brno", NOW);
     assert.equal(second.state, "collecting");
     assert.ok(/jméno|koho/i.test(second.reply), `expected a name question, got: ${second.reply}`);
   });
@@ -51,10 +56,10 @@ describe("intake state machine", () => {
     const tp = makeTradesperson();
     const { conv } = await intake(tp.id, FULL_INTAKE);
 
-    const chosen = await handleTurn(conv, "1");
+    const chosen = await handleTurn(conv, "1", NOW);
     assert.equal(chosen.state, "held");
 
-    const bookings = listBookings(tp.id);
+    const bookings = listBookings(tp.id, NOW);
     assert.equal(bookings.length, 1);
     assert.equal(bookings[0].status, "held");
     assert.equal(bookings[0].customer_name, "Jan Svoboda");
@@ -64,19 +69,19 @@ describe("intake state machine", () => {
     const tp = makeTradesperson();
     const { conv } = await intake(tp.id, FULL_INTAKE);
 
-    const vague = await handleTurn(conv, "kdykoliv, je mi to jedno");
+    const vague = await handleTurn(conv, "kdykoliv, je mi to jedno", NOW);
     assert.equal(vague.state, "proposing");
-    assert.equal(listBookings(tp.id).length, 0, "an unclear answer must not book anything");
+    assert.equal(listBookings(tp.id, NOW).length, 0, "an unclear answer must not book anything");
   });
 
   it("does not book anything while waiting for the tradesperson", async () => {
     const tp = makeTradesperson();
     const { conv } = await intake(tp.id, FULL_INTAKE);
-    await handleTurn(conv, "1");
+    await handleTurn(conv, "1", NOW);
 
-    const after = await handleTurn(conv, "tak co, potvrdil to?");
+    const after = await handleTurn(conv, "tak co, potvrdil to?", NOW);
     assert.equal(after.state, "held");
-    assert.equal(listBookings(tp.id).length, 1, "chatting must not create a second booking");
+    assert.equal(listBookings(tp.id, NOW).length, 1, "chatting must not create a second booking");
   });
 
   it("hands off to the phone rather than claiming a hold it never made", async () => {
@@ -85,7 +90,7 @@ describe("intake state machine", () => {
     const { state } = await intake(tp.id, FULL_INTAKE);
 
     assert.equal(state, "handoff");
-    assert.equal(listBookings(tp.id).length, 0);
+    assert.equal(listBookings(tp.id, NOW).length, 0);
   });
 
   it("keeps the whole transcript", async () => {
@@ -102,7 +107,7 @@ describe("slot choice parsing", () => {
   async function pick(answer: string) {
     const tp = makeTradesperson();
     const { conv } = await intake(tp.id, FULL_INTAKE);
-    const result = await handleTurn(conv, answer);
+    const result = await handleTurn(conv, answer, NOW);
     return { state: result.state, bookings: listBookings(tp.id) };
   }
 
@@ -119,6 +124,19 @@ describe("slot choice parsing", () => {
     const { state, bookings } = await pick("hodilo by se mi to kolem 14:30");
     assert.equal(state, "proposing");
     assert.equal(bookings.length, 0);
+  });
+
+  it("does not accept an option that closing time squeezed out", async () => {
+    // With a 45-minute emergency lead time, 15:00-16:00 is the only slot that
+    // still fits before the 16:00 close, so option 2 does not exist.
+    const lateAfternoon = wednesday(14, 0);
+    const tp = makeTradesperson();
+    const conv = startConversation(tp.id);
+    for (const text of FULL_INTAKE) await handleTurn(conv, text, lateAfternoon);
+
+    const result = await handleTurn(conv, "2", lateAfternoon);
+    assert.equal(result.state, "proposing");
+    assert.equal(listBookings(tp.id, lateAfternoon).length, 0);
   });
 
   it("ignores an option number that was never offered", async () => {

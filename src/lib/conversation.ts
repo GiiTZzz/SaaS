@@ -84,6 +84,7 @@ function save(
 export async function handleTurn(
   conversationId: string,
   customerText: string,
+  now = new Date(),
 ): Promise<{ reply: string; state: ConversationState }> {
   const row = db()
     .prepare(`SELECT * FROM conversation WHERE id = ?`)
@@ -101,7 +102,7 @@ export async function handleTurn(
     end: new Date(e),
   }));
 
-  const result = await route(row.state, tp, conversationId, collected, offers);
+  const result = await route(row.state, tp, conversationId, collected, offers, now);
   append(conversationId, "agent", result.reply);
   save(conversationId, result.state, result.collected, result.offers);
   return { reply: result.reply, state: result.state };
@@ -120,12 +121,13 @@ async function route(
   conversationId: string,
   collected: Collected,
   offers: Slot[],
+  now: Date,
 ): Promise<Outcome> {
   switch (state) {
     case "collecting":
-      return collect(tp, conversationId, collected);
+      return collect(tp, conversationId, collected, now);
     case "proposing":
-      return choose(tp, conversationId, collected, offers);
+      return choose(tp, conversationId, collected, offers, now);
     case "held":
       return {
         reply:
@@ -162,6 +164,7 @@ async function collect(
   tp: Tradesperson,
   conversationId: string,
   known: Collected,
+  now: Date,
 ): Promise<Outcome> {
   const { collected, reply } = await triage(history(conversationId), known);
   const missing = missingFields(collected);
@@ -177,12 +180,12 @@ async function collect(
     };
   }
 
-  return propose(tp, collected);
+  return propose(tp, collected, now);
 }
 
-function propose(tp: Tradesperson, collected: Collected): Outcome {
+function propose(tp: Tradesperson, collected: Collected, now: Date): Outcome {
   const urgency = collected.urgency ?? "normal";
-  const slots = findSlots(tp, urgency, 3);
+  const slots = findSlots(tp, urgency, 3, now);
 
   if (slots.length === 0) {
     // Deliberately not "held": nothing was reserved, and telling the customer
@@ -214,6 +217,7 @@ function choose(
   conversationId: string,
   collected: Collected,
   offers: Slot[],
+  now: Date,
 ): Outcome {
   const last = history(conversationId).at(-1)?.text ?? "";
   const index = parseChoice(last, offers.length);
@@ -230,12 +234,12 @@ function choose(
 
   const slot = offers[index];
   try {
-    reserveSlot(tp, conversationId, slot.start, slot.end, collected);
+    reserveSlot(tp, conversationId, slot.start, slot.end, collected, now);
   } catch (err) {
     if (err instanceof SlotTakenError) {
       // Someone else took it between the offer and the answer. Re-offer rather
       // than confirming a slot we can no longer honour.
-      const fresh = propose(tp, collected);
+      const fresh = propose(tp, collected, now);
       return { ...fresh, reply: `Tento termín právě obsadil jiný zákazník.\n\n${fresh.reply}` };
     }
     throw err;

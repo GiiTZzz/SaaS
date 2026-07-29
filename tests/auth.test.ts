@@ -5,10 +5,13 @@ import { checkDispatchAccess } from "../src/lib/auth";
 const originalToken = process.env.DISPECR_DISPATCH_TOKEN;
 const originalEnv = process.env.NODE_ENV;
 
+// NODE_ENV is typed read-only; these tests need to drive both branches.
+const env = process.env as Record<string, string | undefined>;
+
 afterEach(() => {
   if (originalToken === undefined) delete process.env.DISPECR_DISPATCH_TOKEN;
   else process.env.DISPECR_DISPATCH_TOKEN = originalToken;
-  process.env.NODE_ENV = originalEnv;
+  env.NODE_ENV = originalEnv;
 });
 
 describe("dispatch access", () => {
@@ -36,7 +39,7 @@ describe("dispatch access", () => {
 
   it("stays open in development when no token is configured", () => {
     delete process.env.DISPECR_DISPATCH_TOKEN;
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     assert.equal(checkDispatchAccess(undefined).ok, true);
   });
 
@@ -44,7 +47,7 @@ describe("dispatch access", () => {
     // Failing closed matters here: the dispatch side exposes customer names,
     // phone numbers and addresses.
     delete process.env.DISPECR_DISPATCH_TOKEN;
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
     const result = checkDispatchAccess(undefined);
     assert.equal(result.ok, false);
     assert.match(result.ok ? "" : result.reason, /DISPECR_DISPATCH_TOKEN/);
