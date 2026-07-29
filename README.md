@@ -6,6 +6,15 @@ konkrétní volný termín. Řemeslník dostane hotovou zakázku k jednomu klikn
 
 MVP příležitosti č. 3 z analýzy `AI_prilezitosti_2026`.
 
+## Požadavky
+
+**Node 22.5+** (doporučeno 24). Nic dalšího — žádný kompilátor, žádné Visual
+Studio Build Tools. Úložiště je SQLite vestavěné v Node (`node:sqlite`), takže
+`npm install` nikdy nespadne na nativní modul.
+
+Na Windows si projekt naklonujte do svého adresáře (`C:\Users\<vy>\...`),
+**ne** do `C:\Windows\System32` — tam narazíte na oprávnění.
+
 ## Spuštění
 
 ```bash
@@ -83,6 +92,18 @@ stát řemeslníka výjezd:
 Čas se **injektuje** (`now` parametr) do celé vrstvy — rezervací i konverzace.
 Bez toho byly testy závislé na denní době: odpoledne se do zavíračky vejde
 jen jeden termín, takže test „vyber možnost 2" po 13:00 padal.
+
+## Úložiště
+
+SQLite přes `node:sqlite`. Volba je záměrná: `better-sqlite3` je rychlejší a
+vyzrálejší, ale je to nativní modul — na Windows bez Visual Studio Build Tools
+se `npm install` neinstaluje vůbec. Pro projekt, který má jít naklonovat a
+spustit, je bezbolestná instalace důležitější než výkon SQLite driveru.
+
+`node:sqlite` nemá obálku `transaction()`, takže `BEGIN`/`COMMIT`/`ROLLBACK`
+žije na jednom místě — v `tx()` v `src/lib/db.ts`. Vnořovat ji nelze.
+
+Na Node 22 vypisuje `node:sqlite` varování o experimentálním API. Je neškodné.
 
 ## Naléhavost řídí, jak daleko se hledá
 

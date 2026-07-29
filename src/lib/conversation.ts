@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "./db";
+import { db, queryAll, queryOne } from "./db";
 import { findSlots, formatSlot, Slot } from "./slots";
 import { reserveSlot, SlotTakenError } from "./bookings";
 import { triage } from "./triage";
@@ -38,15 +38,14 @@ export function startConversation(tradespersonId: string): string {
 }
 
 export function getTradesperson(id: string): Tradesperson | undefined {
-  return db().prepare(`SELECT * FROM tradesperson WHERE id = ?`).get(id) as
-    | Tradesperson
-    | undefined;
+  return queryOne<Tradesperson>(`SELECT * FROM tradesperson WHERE id = ?`, id);
 }
 
 export function history(conversationId: string): Turn[] {
-  return db()
-    .prepare(`SELECT role, text FROM message WHERE conversation_id = ? ORDER BY id`)
-    .all(conversationId) as Turn[];
+  return queryAll<Turn>(
+    `SELECT role, text FROM message WHERE conversation_id = ? ORDER BY id`,
+    conversationId,
+  );
 }
 
 function append(conversationId: string, role: Turn["role"], text: string): void {
@@ -86,9 +85,7 @@ export async function handleTurn(
   customerText: string,
   now = new Date(),
 ): Promise<{ reply: string; state: ConversationState }> {
-  const row = db()
-    .prepare(`SELECT * FROM conversation WHERE id = ?`)
-    .get(conversationId) as ConversationRow | undefined;
+  const row = queryOne<ConversationRow>(`SELECT * FROM conversation WHERE id = ?`, conversationId);
   if (!row) throw new Error("conversation not found");
 
   const tp = getTradesperson(row.tradesperson_id);

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db, expireStaleHolds } from "./db";
+import { db, expireStaleHolds, queryAll, queryOne, runNamed, tx } from "./db";
 import { isSlotFree } from "./slots";
 import { Booking, Collected, Tradesperson, Urgency } from "./types";
 import { notifyTradesperson, notifyCustomer } from "./notify";
@@ -25,12 +25,12 @@ export function reserveSlot(
 ): Booking {
   const urgency: Urgency = collected.urgency ?? "normal";
 
-  const create = db().transaction((): Booking => {
+  const booking = tx((): Booking => {
     // Re-check inside the transaction: the availability the customer saw may
     // be seconds stale, and two customers can pick the same slot.
     if (!isSlotFree(tp, start, end, now)) throw new SlotTakenError();
 
-    const booking: Booking = {
+    const row: Booking = {
       id: randomUUID(),
       conversation_id: conversationId,
       tradesperson_id: tp.id,
@@ -47,38 +47,35 @@ export function reserveSlot(
       created_at: now.toISOString(),
     };
 
-    db()
-      .prepare(
-        `INSERT INTO booking (id, conversation_id, tradesperson_id, start_at, end_at,
+    runNamed(
+      `INSERT INTO booking (id, conversation_id, tradesperson_id, start_at, end_at,
            status, hold_expires_at, urgency, customer_name, customer_phone, address,
            problem, reject_reason, created_at)
          VALUES (@id, @conversation_id, @tradesperson_id, @start_at, @end_at,
            @status, @hold_expires_at, @urgency, @customer_name, @customer_phone,
            @address, @problem, @reject_reason, @created_at)`,
-      )
-      .run(booking);
+      row,
+    );
 
-    return booking;
+    return row;
   });
 
-  const booking = create();
   notifyTradesperson(tp, booking);
   return booking;
 }
 
 export function getBooking(id: string, now = new Date()): Booking | undefined {
   expireStaleHolds(now);
-  return db().prepare(`SELECT * FROM booking WHERE id = ?`).get(id) as Booking | undefined;
+  return queryOne<Booking>(`SELECT * FROM booking WHERE id = ?`, id);
 }
 
 export function listBookings(tradespersonId: string, now = new Date()): Booking[] {
   expireStaleHolds(now);
-  return db()
-    .prepare(
-      `SELECT * FROM booking WHERE tradesperson_id = ?
-       ORDER BY CASE status WHEN 'held' THEN 0 ELSE 1 END, start_at`,
-    )
-    .all(tradespersonId) as Booking[];
+  return queryAll<Booking>(
+    `SELECT * FROM booking WHERE tradesperson_id = ?
+     ORDER BY CASE status WHEN 'held' THEN 0 ELSE 1 END, start_at`,
+    tradespersonId,
+  );
 }
 
 /** Tradesperson accepts the hold. Only a live hold can be confirmed. */
@@ -101,10 +98,8 @@ function transition(
   now: Date,
 ): Booking {
   expireStaleHolds(now);
-  const run = db().transaction((): Booking => {
-    const current = db().prepare(`SELECT * FROM booking WHERE id = ?`).get(id) as
-      | Booking
-      | undefined;
+  const booking = tx((): Booking => {
+    const current = queryOne<Booking>(`SELECT * FROM booking WHERE id = ?`, id);
     if (!current) throw new Error("booking not found");
     if (current.status !== "held") {
       throw new Error(`booking is ${current.status}, only a held booking can change`);
@@ -123,7 +118,6 @@ function transition(
     return { ...current, status: to, reject_reason: reason, hold_expires_at: null };
   });
 
-  const booking = run();
   notifyCustomer(booking);
   return booking;
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { db, resetDbForTests } from "../src/lib/db";
+import { db, resetDbForTests, runNamed } from "../src/lib/db";
 import { Tradesperson } from "../src/lib/types";
 
 /**
@@ -34,12 +34,11 @@ export function makeTradesperson(overrides: Partial<Tradesperson> = {}): Tradesp
     ...overrides,
   };
 
-  db()
-    .prepare(
-      `INSERT INTO tradesperson (id, name, trade, phone, slot_minutes, working_hours, hold_minutes)
-       VALUES (@id, @name, @trade, @phone, @slot_minutes, @working_hours, @hold_minutes)`,
-    )
-    .run(tp);
+  runNamed(
+    `INSERT INTO tradesperson (id, name, trade, phone, slot_minutes, working_hours, hold_minutes)
+     VALUES (@id, @name, @trade, @phone, @slot_minutes, @working_hours, @hold_minutes)`,
+    tp,
+  );
 
   return tp;
 }
