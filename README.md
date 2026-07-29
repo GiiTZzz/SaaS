@@ -6,6 +6,18 @@ konkrétní volný termín. Řemeslník dostane hotovou zakázku k jednomu klikn
 
 MVP příležitosti č. 3 z analýzy `AI_prilezitosti_2026`.
 
+## Spuštění jedním kliknutím (Windows)
+
+Ve složce projektu dvojklik na **`start.bat`**. Skript zkontroluje Node,
+doinstaluje závislosti, založí databázi, spustí server a otevře prohlížeč.
+Napoprvé to trvá pár minut, pak už jsou to sekundy.
+
+Pokud projekt ještě nemáte stažený, stáhněte si
+[`tools/instalace-windows.bat`](tools/instalace-windows.bat), spusťte ho, a
+stáhne projekt do `%USERPROFILE%\Dispecr` a rovnou ho spustí.
+
+Server běží v druhém okně — zavřením toho okna ho vypnete.
+
 ## Požadavky
 
 **Node 22.5+** (doporučeno 24). Nic dalšího — žádný kompilátor, žádné Visual
